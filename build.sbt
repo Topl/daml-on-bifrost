@@ -1,12 +1,14 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "2.12.8"
+ThisBuild / scalaVersion := "2.12.13"
 ThisBuild / version := "0.1.3-SNAPSHOT"
-ThisBuild / organization := "com.daml"
-ThisBuild / organizationName := "Digital Asset, LLC"
+ThisBuild / organization := "co.topl"
+ThisBuild / organizationName := "Topl, LLC"
 
-lazy val sdkVersion = "1.2.0-snapshot.20200513.4172.0.021f4af3"
-lazy val akkaVersion = "2.6.1"
+lazy val sdkVersion = "1.10.0"
+lazy val akkaVersion = "2.6.12"
+lazy val protobufVersion = "3.14.0"
+lazy val logbackVersion = "1.2.3"
 
 // This task is used by the integration test to detect which version of Ledger API Test Tool to use.
 val printSdkVersion = taskKey[Unit]("printSdkVersion")
@@ -30,11 +32,11 @@ assemblyMergeStrategy in assembly := {
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
 }
-assemblyJarName in assembly := "damlonx-example.jar"
+assemblyJarName in assembly := "daml-on-bifrost.jar"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "DAML-on-X Example Ledger Implementation",
+    name := "DAML-on-Bifrost Ledger Implementation",
     libraryDependencies ++= Seq(
       scalaTest % Test,
       "com.daml" % "daml-lf-dev-archive-java-proto" % sdkVersion,
@@ -58,10 +60,15 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
 
+      // Protobuf / grpc
+      "com.google.protobuf" % "protobuf-java-util" % protobufVersion,
+      "com.google.protobuf" % "protobuf-java" % protobufVersion,
+
+
       "org.slf4j" % "slf4j-api" % "1.7.26",
-      "ch.qos.logback" % "logback-core" % "1.2.3",
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "ch.qos.logback" % "logback-core" % logbackVersion,
+      "ch.qos.logback" % "logback-classic" % logbackVersion,
       "commons-io" % "commons-io" % "2.6",
-      "com.github.scopt" %% "scopt" % "4.0.0-RC2",
+
     )
   )
