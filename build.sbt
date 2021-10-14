@@ -7,8 +7,8 @@ ThisBuild / organizationName := "Topl"
 
 lazy val sdkVersion = "1.17.1"
 lazy val akkaVersion = "2.6.16"
-lazy val protobufVersion = "3.14.0"
-lazy val logbackVersion = "1.2.3"
+lazy val protobufVersion = "3.18.1"
+lazy val logbackVersion = "1.2.6"
 
 // This task is used by the integration test to detect which version of Ledger API Test Tool to use.
 val printSdkVersion = taskKey[Unit]("printSdkVersion")
@@ -65,10 +65,10 @@ lazy val root = (project in file("."))
       "com.google.protobuf" % "protobuf-java" % protobufVersion,
 
 
-      "org.slf4j" % "slf4j-api" % "1.7.26",
+      "org.slf4j" % "slf4j-api" % "1.7.32",
       "ch.qos.logback" % "logback-core" % logbackVersion,
       "ch.qos.logback" % "logback-classic" % logbackVersion,
-      "commons-io" % "commons-io" % "2.6",
+      "commons-io" % "commons-io" % "2.11.0",
 
       "org.mongodb" % "mongodb-jdbc" % "1.0.3",
 
