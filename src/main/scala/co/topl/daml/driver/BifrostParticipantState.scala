@@ -4,9 +4,10 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import co.topl.daml.driver.BifrostParticipantState.{CommitSubmission, State}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueConsumption, OffsetBuilder, Pretty, DamlKvutils}
-import com.daml.ledger.participant.state.v1.{Configuration, LedgerInitialConditions, Offset, ParticipantId, Party, ReadService, SubmissionId, SubmittedTransaction, SubmitterInfo, TimeModel, TransactionMeta, Update, WriteService}
-import com.daml.lf.data.Time
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, KeyValueConsumption, KeyValueSubmission, OffsetBuilder, Pretty}
+import com.daml.ledger.participant.state.v1.{Configuration, LedgerInitialConditions, Offset, ParticipantId, Party, ReadService, SubmissionId, SubmissionResult, SubmittedTransaction, SubmitterInfo, TimeModel, TransactionMeta, Update, WriteService}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
@@ -16,6 +17,8 @@ import com.google.protobuf.ByteString
 
 import java.io.Serializable
 import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.Future
 
 object BifrostParticipantState {
@@ -64,8 +67,10 @@ class BifrostParticipantState(
     with WriteService {
 
   val ledgerId = "Bifrost-participant-node"
-
   val genesisIndex = 0
+
+  val keyValueSubmission = new KeyValueSubmission(metrics)
+
 
   private val rng = scala.util.Random
 
@@ -84,6 +89,14 @@ class BifrostParticipantState(
 
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("bifrost-participant-state", zeroIndex = genesisIndex, headAtInitialization = 0)
+
+  private def allocateEntryId: DamlKvutils.DamlLogEntryId = {
+    val nonce: Array[Byte] = Array.ofDim(8)
+    rng.nextBytes(nonce)
+    DamlKvutils.DamlLogEntryId.newBuilder
+      .setEntryId(NS_LOG_ENTRIES.concat(ByteString.copyFrom(nonce)))
+      .build
+  }
 
   /** Helper for [[dispatcher]] to fetch [[com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry]] from the
     * state and convert it into [[com.daml.ledger.participant.state.v1.Update]].
@@ -145,16 +158,68 @@ class BifrostParticipantState(
                                   transaction: SubmittedTransaction,
                                   estimatedInterpretationCost: Long) = ???
 
-  override def allocateParty(hint: Option[Party], displayName: Option[String], submissionId: SubmissionId) = ???
+  override def allocateParty(
+                              hint: Option[Party],
+                              displayName: Option[String],
+                              submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(generateRandomParty())
+    val submission =
+      keyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, partipantId)
+
+    CompletableFuture.completedFuture({
+      CommitSubmission(
+        allocateEntryId,
+        Envelope.enclose(
+          submission
+        )
+      )
+      SubmissionResult.Acknowledged
+    })
+
+  }
+
+  private def generateRandomParty(): Ref.Party =
+    Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
 
-  override def submitConfiguration(maxRecordTime: Time.Timestamp, submissionId: SubmissionId, config: Configuration) = ???
+  override def submitConfiguration(
+                                    maxRecordTime: Time.Timestamp,
+                                    submissionId: SubmissionId,
+                                    config: Configuration): CompletionStage[SubmissionResult] = {
+    CompletableFuture.completedFuture({
+      val submission = keyValueSubmission
+        .configurationToSubmission(maxRecordTime, submissionId, partipantId, config)
+      // TODO send configuration to a connected Bifrost node
+      CommitSubmission(allocateEntryId, Envelope.enclose(submission))
+      SubmissionResult.Acknowledged
+    })
+  }
 
   override def currentHealth() = ???
 
-  override def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId) = ???
+  /** Upload a collection of DAML-LF packages to the ledger. */
+  override def uploadPackages(
+                               submissionId: SubmissionId,
+                               archives: List[Archive],
+                               sourceDescription: Option[String]
+                             ): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      CommitSubmission(
+        allocateEntryId,
+        Envelope.enclose(
+          keyValueSubmission
+            .archivesToSubmission(
+              submissionId,
+              archives,
+              sourceDescription.getOrElse(""),
+              partipantId
+            )
+        )
+      )
+      SubmissionResult.Acknowledged
+    })
 
-  override def uploadPackages(submissionId: SubmissionId, archives: List[DamlLf.Archive], sourceDescription: Option[String]) = ???
+  override def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId) = ???
 
   override def close() = {}
 }
