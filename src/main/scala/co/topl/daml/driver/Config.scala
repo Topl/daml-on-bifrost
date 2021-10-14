@@ -5,9 +5,8 @@ import com.daml.caching
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.kvutils.app.ParticipantConfig
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.lf.data.Ref.ParticipantId
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerStartupMode
 import com.daml.ports.Port
@@ -29,7 +28,7 @@ final case class Config(
                          address: Option[String],
                          jdbcUrl: String,
                          tlsConfig: Option[TlsConfiguration],
-                         participantId: v1.ParticipantId,
+                         participantId: ParticipantId,
                          startupMode: IndexerStartupMode,
                          roleLedger: Boolean,
                          roleTime: Boolean,
@@ -68,6 +67,6 @@ object Config {
       roleExplorer = false,
       authService = AuthServiceWildcard,
       seeding = Seeding.Weak,
-      managementServiceTimeout = ParticipantConfig.defaultManagementServiceTimeout
+      managementServiceTimeout = ParticipantConfig.DefaultManagementServiceTimeout
     )
 }

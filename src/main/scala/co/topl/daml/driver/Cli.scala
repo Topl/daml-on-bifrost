@@ -8,9 +8,9 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ParticipantId
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.ports.Port
 import scopt.{OptionParser, Read}

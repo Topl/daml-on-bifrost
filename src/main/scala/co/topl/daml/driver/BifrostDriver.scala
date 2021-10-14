@@ -5,18 +5,24 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v1.{Configuration, SubmissionId, TimeModel, WritePackagesService}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.participant.state.index.v2.LedgerConfiguration
+import com.daml.ledger.participant.state.v2.WritePackagesService
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.{ArchivePayloadParser, DarParser, DarReader}
+import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
-import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration, SubmissionConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.ProgramResource
+import com.daml.telemetry.{DefaultTelemetryContext, OpenTelemetryTracer, Spans}
+import io.opentelemetry.api.trace.Span
 import org.slf4j.LoggerFactory
 
 import java.nio.file.Path
@@ -28,6 +34,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object BifrostDriver extends App {
+
+  implicit val telemetry = DefaultTelemetryContext(OpenTelemetryTracer, Span.current())
 
   val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -65,7 +73,7 @@ object BifrostDriver extends App {
           // initialize all configured participants
           _ <- {
             metricsRegistry.registerAll(new JvmMetricSet)
-            val lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
+            val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
               eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
               contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
               metrics = metrics
@@ -90,42 +98,40 @@ object BifrostDriver extends App {
                 .acquire()
               _ <- new StandaloneIndexerServer(
                 readService = ledger,
-                config = IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
+                config = IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode, enableAppendOnlySchema = false),
                 servicesExecutionContext = servicesExecutionContext,
                 metrics = metrics,
                 lfValueTranslationCache = lfValueTranslationCache
               ).acquire() if config.roleLedger
               _ <- new StandaloneApiServer(
+                ledgerId = ledger.ledgerId,
                 config = ApiServerConfig(
                   participantId = config.participantId,
                   archiveFiles = config.archiveFiles.map(_.toFile),
                   port = config.port,
                   address = config.address,
                   jdbcUrl = config.jdbcUrl,
+                  databaseConnectionPoolSize = ???,
+                  databaseConnectionTimeout = ???,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
+                  initialLedgerConfiguration = ???,
+                  configurationLoadTimeout = ???,
                   eventsPageSize = config.eventsPageSize,
+                  eventsProcessingParallelism = ???,
                   portFile = config.portFile.map(_.toPath),
                   seeding = config.seeding,
-                  managementServiceTimeout = config.managementServiceTimeout
+                  managementServiceTimeout = config.managementServiceTimeout,
+                  enableAppendOnlySchema = true,
+                  maxContractStateCacheSize = ???,
+                  maxContractKeyStateCacheSize = ???,
+                  enableMutableContractStateCache = ???,
+                  maxTransactionsInMemoryFanOutBufferSize = ???,
+                  enableInMemoryFanOutForLedgerApi = ???,
                 ),
                 commandConfig = CommandConfiguration.default,
                 partyConfig = PartyConfiguration(false),
-                ledgerConfig = LedgerConfiguration(
-                  initialConfiguration = Configuration(
-                    generation = 1,
-                    timeModel = TimeModel(
-                      avgTransactionLatency = Duration.ofSeconds(0L),
-                      minSkew = Duration.ofMinutes(2),
-                      //TODO BH: temporarily give big tolerance on time while ensuring proper way of ticking it
-                      maxSkew = Duration.ofMinutes(2)
-                    ).get,
-                    maxDeduplicationTime = Duration.ofDays(1)
-                  ),
-                  initialConfigurationSubmitDelay = Duration.ofSeconds(5),
-                  configurationLoadTimeout = Duration.ofSeconds(30)
-                ),
-                ledgerId = ledger.ledgerId,
+                submissionConfig = SubmissionConfiguration.default,
                 optWriteService = Some(ledger),
                 authService = authService,
                 healthChecks = new HealthChecks(
@@ -150,7 +156,10 @@ object BifrostDriver extends App {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get
+        DarParser.readArchiveFromFile(from.toFile) match {
+          case Left(err) => throw new Error(err.msg)
+          case Right(archive) => archive
+        }
       )
       _ <- to.uploadPackages(submissionId, dar.all, None).toScala
     } yield ()

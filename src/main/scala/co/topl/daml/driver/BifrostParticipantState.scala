@@ -5,14 +5,20 @@ import akka.stream.scaladsl.Source
 import co.topl.daml.driver.BifrostParticipantState.{CommitSubmission, State}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, KeyValueConsumption, KeyValueSubmission, OffsetBuilder, Pretty}
-import com.daml.ledger.participant.state.v1.{Configuration, LedgerInitialConditions, Offset, ParticipantId, Party, ReadService, SubmissionId, SubmissionResult, SubmittedTransaction, SubmitterInfo, TimeModel, TransactionMeta, Update, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, SubmissionResult, SubmitterInfo, TransactionMeta, Update, WriteService}
+import com.daml.lf.data.Ref.{ParticipantId, Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
+import com.daml.telemetry.TelemetryContext
 import com.google.protobuf.ByteString
 
 import java.io.Serializable
@@ -79,11 +85,7 @@ class BifrostParticipantState(
 
   private val ledgerConfig = Configuration(
     generation = 0L,
-    timeModel = TimeModel(
-      Duration.ofSeconds(0L),
-      Duration.ofSeconds(120L),
-      Duration.ofSeconds(120L)
-    ).get,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1)
   )
 
@@ -109,7 +111,7 @@ class BifrostParticipantState(
         state.store
           .get(entryId.getEntryId)
           .map { blob =>
-            val logEntry = Envelope.open(blob) match {
+            val logEntry = Envelope.open(blob.toByteArray) match {
               case Left(err)                                 => sys.error(s"getUpdate: cannot open envelope: $err")
               case Right(Envelope.LogEntryMessage(logEntry)) => logEntry
               case Right(_)                                  => sys.error("getUpdate: Envelope did not contain log entry")
@@ -120,10 +122,6 @@ class BifrostParticipantState(
             sys.error(s"getUpdate: ${Pretty.prettyEntryId(entryId)} not found from store!")
           )
     }
-  }
-
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
-    Source.single(LedgerInitialConditions(ledgerId, ledgerConfig, Time.Timestamp.now()))
   }
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
@@ -152,74 +150,78 @@ class BifrostParticipantState(
       }
   }
 
-  override def submitTransaction(
-                                  submitterInfo: SubmitterInfo,
-                                  transactionMeta: TransactionMeta,
-                                  transaction: SubmittedTransaction,
-                                  estimatedInterpretationCost: Long) = ???
-
-  override def allocateParty(
-                              hint: Option[Party],
-                              displayName: Option[String],
-                              submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
-    val party = hint.getOrElse(generateRandomParty())
-    val submission =
-      keyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, partipantId)
-
-    CompletableFuture.completedFuture({
-      CommitSubmission(
-        allocateEntryId,
-        Envelope.enclose(
-          submission
-        )
-      )
-      SubmissionResult.Acknowledged
-    })
-
-  }
+//  override def allocateParty(
+//                              hint: Option[Party],
+//                              displayName: Option[String],
+//                              submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+//    val party = hint.getOrElse(generateRandomParty())
+//    val submission =
+//      keyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, partipantId)
+//
+//    CompletableFuture.completedFuture({
+//      CommitSubmission(
+//        allocateEntryId,
+//        Envelope.enclose(
+//          submission
+//        ).bytes
+//      )
+//      SubmissionResult.Acknowledged
+//    })
+//
+//  }
 
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
 
-  override def submitConfiguration(
-                                    maxRecordTime: Time.Timestamp,
-                                    submissionId: SubmissionId,
-                                    config: Configuration): CompletionStage[SubmissionResult] = {
-    CompletableFuture.completedFuture({
-      val submission = keyValueSubmission
-        .configurationToSubmission(maxRecordTime, submissionId, partipantId, config)
-      // TODO send configuration to a connected Bifrost node
-      CommitSubmission(allocateEntryId, Envelope.enclose(submission))
-      SubmissionResult.Acknowledged
-    })
-  }
+//  override def submitConfiguration(
+//                                    maxRecordTime: Time.Timestamp,
+//                                    submissionId: SubmissionId,
+//                                    config: Configuration): CompletionStage[SubmissionResult] = {
+//    CompletableFuture.completedFuture({
+//      val submission = keyValueSubmission
+//        .configurationToSubmission(maxRecordTime, submissionId, partipantId, config)
+//      // TODO send configuration to a connected Bifrost node
+//      CommitSubmission(allocateEntryId, Envelope.enclose(submission).bytes)
+//      SubmissionResult.Acknowledged
+//    })
+//  }
 
   override def currentHealth() = ???
 
   /** Upload a collection of DAML-LF packages to the ledger. */
-  override def uploadPackages(
-                               submissionId: SubmissionId,
-                               archives: List[Archive],
-                               sourceDescription: Option[String]
-                             ): CompletionStage[SubmissionResult] =
-    CompletableFuture.completedFuture({
-      CommitSubmission(
-        allocateEntryId,
-        Envelope.enclose(
-          keyValueSubmission
-            .archivesToSubmission(
-              submissionId,
-              archives,
-              sourceDescription.getOrElse(""),
-              partipantId
-            )
-        )
-      )
-      SubmissionResult.Acknowledged
-    })
-
-  override def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId) = ???
+//  override def uploadPackages(
+//                               submissionId: SubmissionId,
+//                               archives: List[Archive],
+//                               sourceDescription: Option[String]
+//                             ): CompletionStage[SubmissionResult] =
+//    CompletableFuture.completedFuture({
+//      CommitSubmission(
+//        allocateEntryId,
+//        Envelope.enclose(
+//          keyValueSubmission
+//            .archivesToSubmission(
+//              submissionId,
+//              archives,
+//              sourceDescription.getOrElse(""),
+//              partipantId
+//            )
+//        ).bytes
+//      )
+//      SubmissionResult.Acknowledged
+//    })
 
   override def close() = {}
+
+  override def ledgerInitialConditions() = ???
+
+  override def submitTransaction(submitterInfo: SubmitterInfo, transactionMeta: TransactionMeta, transaction: SubmittedTransaction, estimatedInterpretationCost: Long)(implicit telemetryContext: TelemetryContext) = ???
+
+  override def submitConfiguration(maxRecordTime: Timestamp, submissionId: SubmissionId, config: Configuration)(implicit telemetryContext: TelemetryContext) = ???
+
+  override def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId, pruneAllDivulgedContracts: Boolean) = ???
+
+  override def allocateParty(hint: Option[Party], displayName: Option[String], submissionId: SubmissionId)(implicit telemetryContext: TelemetryContext) = ???
+
+  override def uploadPackages(submissionId: SubmissionId, archives: List[Archive], sourceDescription: Option[String])(implicit telemetryContext: TelemetryContext) = ???
 }
