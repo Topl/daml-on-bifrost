@@ -22,7 +22,7 @@ import com.daml.telemetry.TelemetryContext
 import com.google.protobuf.ByteString
 
 import java.io.Serializable
-import java.time.Duration
+import java.time.{Clock, Duration}
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.Future
@@ -77,7 +77,6 @@ class BifrostParticipantState(
 
   val keyValueSubmission = new KeyValueSubmission(metrics)
 
-
   private val rng = scala.util.Random
 
   // Namespace prefix for log entries.
@@ -89,6 +88,11 @@ class BifrostParticipantState(
     maxDeduplicationTime = Duration.ofDays(1)
   )
 
+  import com.daml.platform.indexer
+  import org.flywaydb.core.internal.command.DbMigrate
+
+  private val initialConditions = LedgerInitialConditions(ledgerId, ledgerConfig, getNewRecordTime)
+
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("bifrost-participant-state", zeroIndex = genesisIndex, headAtInitialization = 0)
 
@@ -99,6 +103,9 @@ class BifrostParticipantState(
       .setEntryId(NS_LOG_ENTRIES.concat(ByteString.copyFrom(nonce)))
       .build
   }
+
+  def getNewRecordTime: Timestamp =
+    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   /** Helper for [[dispatcher]] to fetch [[com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry]] from the
     * state and convert it into [[com.daml.ledger.participant.state.v1.Update]].
@@ -123,6 +130,17 @@ class BifrostParticipantState(
           )
     }
   }
+
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    Source.single(initialConditions)
+
+  override def submitTransaction(submitterInfo: SubmitterInfo, transactionMeta: TransactionMeta, transaction: SubmittedTransaction, estimatedInterpretationCost: Long)(implicit telemetryContext: TelemetryContext) = ???
+
+  override def submitConfiguration(maxRecordTime: Timestamp, submissionId: SubmissionId, config: Configuration)(implicit telemetryContext: TelemetryContext) = ???
+
+  override def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId, pruneAllDivulgedContracts: Boolean) = ???
+
+  override def allocateParty(hint: Option[Party], displayName: Option[String], submissionId: SubmissionId)(implicit telemetryContext: TelemetryContext) = ???
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     dispatcher
@@ -211,17 +229,8 @@ class BifrostParticipantState(
 //      SubmissionResult.Acknowledged
 //    })
 
+  override def uploadPackages(submissionId: SubmissionId, archives: List[Archive], sourceDescription: Option[String])(implicit telemetryContext: TelemetryContext) = ???
+
   override def close() = {}
 
-  override def ledgerInitialConditions() = ???
-
-  override def submitTransaction(submitterInfo: SubmitterInfo, transactionMeta: TransactionMeta, transaction: SubmittedTransaction, estimatedInterpretationCost: Long)(implicit telemetryContext: TelemetryContext) = ???
-
-  override def submitConfiguration(maxRecordTime: Timestamp, submissionId: SubmissionId, config: Configuration)(implicit telemetryContext: TelemetryContext) = ???
-
-  override def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId, pruneAllDivulgedContracts: Boolean) = ???
-
-  override def allocateParty(hint: Option[Party], displayName: Option[String], submissionId: SubmissionId)(implicit telemetryContext: TelemetryContext) = ???
-
-  override def uploadPackages(submissionId: SubmissionId, archives: List[Archive], sourceDescription: Option[String])(implicit telemetryContext: TelemetryContext) = ???
 }
