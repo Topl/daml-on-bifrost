@@ -1,6 +1,6 @@
 # Daml-on-Bifrost
 
-## An implementation of the DAML-on-X example for Topl Bifrost nodes
+### An implementation of the DAML-on-X example for Topl Bifrost nodes
 
 This implementation integrates a [DAML-on-X](https://github.com/digital-asset/daml-on-x-example) Driver with a Topl [Bifrost Node](https://github.com/Topl/Bifrost) and Topl ecosystem. The purpose of this driver is to enable off-chain smart contracts to be created and updated in tandem with the Topl blockchain, allowing smart contract calls to initiate and control Asset transactions on the blockchain.
 

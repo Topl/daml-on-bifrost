@@ -6,7 +6,7 @@ ThisBuild / organization := "co.topl"
 ThisBuild / organizationName := "Topl"
 
 lazy val sdkVersion = "1.17.1"
-lazy val akkaVersion = "2.6.16"
+lazy val akkaVersion = "2.6.17"
 lazy val protobufVersion = "3.18.1"
 lazy val logbackVersion = "1.2.6"
 
@@ -46,6 +46,7 @@ lazy val root = (project in file("."))
       "com.daml" %% "daml-lf-engine" % sdkVersion,
       "com.daml" %% "daml-lf-language" % sdkVersion,
       "com.daml" %% "daml-lf-transaction" % sdkVersion,
+      "com.daml" %% "testing-utils" % sdkVersion % Test,
 
       "com.daml" %% "sandbox" % sdkVersion,
       "com.daml" %% "ledger-api-auth" % sdkVersion,
@@ -73,6 +74,7 @@ lazy val root = (project in file("."))
       "org.mongodb" % "mongodb-jdbc" % "1.0.3",
 
       "co.topl" %% "common" % "1.7.0",
+      "co.topl" %% "brambl" % "1.7.0",
 
     )
   )
