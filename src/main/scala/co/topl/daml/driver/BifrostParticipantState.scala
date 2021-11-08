@@ -105,7 +105,7 @@ class BifrostParticipantState(participantId: ParticipantId, metrics: Metrics, en
    * Helper for [[dispatcher]] to fetch [[com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry]] from the
    * state and convert it into [[com.daml.ledger.participant.state.v1.Update]].
    */
-  private def getUpdate(idx: Long, state: State): List[Update] = {
+  private def getUpdate(idx: Int, state: State): List[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
 
     state.commitLog(idx) match {
