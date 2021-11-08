@@ -70,7 +70,7 @@ class BifrostParticipantState(participantId: ParticipantId, metrics: Metrics, en
     with WriteService {
 
   val ledgerId = "Bifrost-participant-node"
-  val genesisIndex: Long = 0L
+  val genesisIndex: Int = 0
 
   val keyValueSubmission = new KeyValueSubmission(metrics)
 
