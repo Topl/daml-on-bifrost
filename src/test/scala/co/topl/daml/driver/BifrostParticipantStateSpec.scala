@@ -61,6 +61,38 @@ class BifrostParticipantStateSpec extends AsyncWordSpecLike with AkkaBeforeAndAf
         } yield conditions.ledgerId should be(ledgerId)
       }
     }
+
+    "submit a configuration to the node" in {
+      ???
+    }
+
+    "return current health" in {
+      ???
+    }
+
+    "upload packages" in {
+      ???
+    }
+
+    "allocate party" in {
+      ???
+    }
+
+    "prune" in {
+      ???
+    }
+
+    "close" in {
+      ???
+    }
+
+    "return updates from state" in {
+      ???
+    }
+
+    "submit a new transaction" in {
+      ???
+    }
   }
 }
 
