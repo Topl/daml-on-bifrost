@@ -2,27 +2,64 @@ package co.topl.daml.driver
 
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.app.ReadWriteService
+import com.daml.ledger.participant.state.v2.Update.{ConfigurationChanged, PartyAddedToParticipant, PublicPackageUpload}
+import com.daml.ledger.participant.state.v2.{SubmissionResult, Update}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.archive.{ArchivePayload, Dar, DarParser, DarReader}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.ParticipantId
+import com.daml.lf.data.Ref.{ParticipantId, SubmissionId}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import org.scalatest.{AsyncWordSpecLike, Matchers}
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import org.scalatest.Inside.inside
+import org.scalatest.Matchers._
+import org.scalatest.{Assertion, AsyncWordSpecLike, BeforeAndAfterEach, Matchers}
 
+import java.time.{Clock, Duration}
 import java.util.UUID
+import java.util.zip.ZipInputStream
+import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
-class BifrostParticipantStateSpec extends AsyncWordSpecLike with AkkaBeforeAndAfterAll with Matchers {
+class BifrostParticipantStateSpec
+    extends AsyncWordSpecLike
+    with AkkaBeforeAndAfterAll
+    with Matchers
+    with BeforeAndAfterEach {
 
   import BifrostParticipantStateSpec._
 
+  implicit protected val telemetryContext: TelemetryContext = NoOpTelemetryContext
   implicit protected val resourceContext: ResourceContext = ResourceContext(executionContext)
 
   val sharedEngine = Engine.StableEngine()
+
+  private var testId: String = _
+
+  private var rt: Timestamp = _
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    testId = UUID.randomUUID().toString
+    rt = Timestamp.assertFromInstant(Clock.systemUTC().instant())
+  }
+
+  private def inTheFuture(duration: FiniteDuration): Timestamp =
+    rt.add(Duration.ofNanos(duration.toNanos))
+
+  private def participantState: ResourceOwner[BifrostParticipantState] = newParticipantState()
 
   private def newParticipantState(ledgerId: Option[LedgerId] = None) = newLoggingContext { implicit logCtx =>
     participantStateFactory(
@@ -48,7 +85,18 @@ class BifrostParticipantStateSpec extends AsyncWordSpecLike with AkkaBeforeAndAf
       )
     } yield participantState
 
+  private def waitForNextUpdate(
+    ps:          BifrostParticipantState,
+    afterOffset: Option[Offset] = None
+  ): Future[(Offset, Update)] =
+    ps.stateUpdates(beginAfter = afterOffset)
+      .idleTimeout(IdleTimeout)
+      .runWith(Sink.head)
+
   def newLedgerId() = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
+
+  private def newSubmissionId(): SubmissionId =
+    Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   "Participant State" should {
     "return the initial configuration" in {
@@ -62,37 +110,82 @@ class BifrostParticipantStateSpec extends AsyncWordSpecLike with AkkaBeforeAndAf
       }
     }
 
-    "submit a configuration to the node" in {
-      ???
+    "submit a configuration to the node" in participantState.use { ps =>
+      for {
+        cond <- ps.ledgerInitialConditions().runWith(Sink.head)
+
+        _ <- ps
+          .submitConfiguration(
+            maxRecordTime = inTheFuture(10.seconds),
+            submissionId = newSubmissionId(),
+            config = cond.config.copy(
+              generation = cond.config.generation + 1,
+              timeModel = LedgerTimeModel(
+                Duration.ofSeconds(123),
+                Duration.ofSeconds(123),
+                Duration.ofSeconds(123)
+              ).get
+            )
+          )
+          .toScala
+        (offset, update) <- waitForNextUpdate(ps, None)
+      } yield inside(update) { case ConfigurationChanged(_, _, _, newConfiguration) =>
+        newConfiguration should not be cond.config
+      }
     }
 
-    "return current health" in {
-      ???
+    "return current health" in participantState.use { ps =>
+      ps.currentHealth() should be(Healthy)
     }
 
-    "upload packages" in {
-      ???
+    "upload packages" in participantState.use { ps =>
+      val submissionId = newSubmissionId()
+      for {
+        result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
+        _ = result should be(SubmissionResult.Acknowledged)
+        (offset, update) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .runWith(Sink.head)
+      } yield {
+        offset should be(toOffset(1))
+        update.recordTime should be >= rt
+        matchPackageUpload(update, submissionId, List(archives.head))
+      }
     }
 
-    "allocate party" in {
-      ???
+    "allocate party" in participantState.use { ps =>
+      val partyHint = Ref.Party.assertFromString("Alice")
+      val displayName = "Alice Cooper"
+
+      for {
+        result <- ps
+          .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
+          .toScala
+        _ = result should be(SubmissionResult.Acknowledged)
+        (offset, update) <- waitForNextUpdate(ps, None)
+      } yield {
+        offset should be(toOffset(1))
+        update.recordTime should be >= rt
+        inside(update) { case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
+          party should be(partyHint)
+          actualDisplayName should be(displayName)
+          actualParticipantId should be(participantId)
+        }
+      }
     }
 
     "prune" in {
       ???
     }
 
-    "close" in {
-      ???
-    }
-
-    "return updates from state" in {
-      ???
-    }
-
-    "submit a new transaction" in {
-      ???
-    }
+//    "return updates from state" in {
+//      ???
+//    }
+//
+//    "submit a new transaction" in {
+//      ???
+//    }
   }
 }
 
@@ -101,6 +194,43 @@ object BifrostParticipantStateSpec {
   type BifrostParticipantState = ReadWriteService
 
   private val participantId = Ref.ParticipantId.assertFromString("test-participant")
+  private val sourceDescription = Some("provided by test")
+  private val IdleTimeout: FiniteDuration = 5.seconds
+
+  private val dars = DarReader.readArchive(
+    "create-daml-app-0.1.0.dar",
+    new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream("create-daml-app-0.1.0.dar"))
+  ) match {
+    case Left(value)  => throw new Exception(s"Could not read DAR")
+    case Right(value) => value
+  }
+
+  private val testDar = DarParser.readArchive(
+    "create-daml-app-0.1.0.dar",
+    new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream("create-daml-app-0.1.0.dar"))
+  ) match {
+    case Left(value)  => throw new Exception(s"Could not read DAR")
+    case Right(value) => value
+  }
+
+  private val archives = testDar.all
+
+  private def matchPackageUpload(
+    update:               Update,
+    expectedSubmissionId: SubmissionId,
+    expectedArchives:     List[DamlLf.Archive]
+  ): Assertion =
+    inside(update) {
+      case PublicPackageUpload(
+            actualArchives,
+            actualSourceDescription,
+            _,
+            Some(actualSubmissionId)
+          ) =>
+        actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
+        actualSourceDescription should be(sourceDescription)
+        actualSubmissionId should be(expectedSubmissionId)
+    }
 }
 
 import org.scalatest.AsyncTestSuite

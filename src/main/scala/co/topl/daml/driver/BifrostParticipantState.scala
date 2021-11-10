@@ -4,6 +4,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import co.topl.daml.driver.BifrostParticipantState.{CommitSubmission, State}
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils._
@@ -216,12 +217,16 @@ class BifrostParticipantState(participantId: ParticipantId, metrics: Metrics, en
       SubmissionResult.Acknowledged
     })
 
-  override def currentHealth() = ???
+  /**
+   * Sends back the status of the reader and writer services.
+   * @return `Healthy` or `Unhealthy`
+   */
+  override def currentHealth(): HealthStatus = Healthy
 
   /** Upload a collection of DAML-LF packages to the ledger. */
   override def uploadPackages(submissionId: SubmissionId, archives: List[Archive], sourceDescription: Option[String])(
     implicit telemetryContext:              TelemetryContext
-  ) =
+  ): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       CommitSubmission(
         allocateEntryId,
