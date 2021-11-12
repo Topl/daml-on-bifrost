@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.app.ReadWriteService
 import com.daml.ledger.participant.state.v2.Update.{ConfigurationChanged, PartyAddedToParticipant, PublicPackageUpload}
 import com.daml.ledger.participant.state.v2.{SubmissionResult, Update}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.lf.archive.{ArchivePayload, Dar, DarParser, DarReader}
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ParticipantId, SubmissionId}
 import com.daml.lf.data.Time.Timestamp
@@ -22,8 +22,9 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.scalatest.Inside.inside
-import org.scalatest.Matchers._
-import org.scalatest.{Assertion, AsyncWordSpecLike, BeforeAndAfterEach, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpecLike
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import java.time.{Clock, Duration}
 import java.util.UUID
@@ -31,7 +32,6 @@ import java.util.zip.ZipInputStream
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 class BifrostParticipantStateSpec
     extends AsyncWordSpecLike
@@ -92,6 +92,23 @@ class BifrostParticipantStateSpec
     ps.stateUpdates(beginAfter = afterOffset)
       .idleTimeout(IdleTimeout)
       .runWith(Sink.head)
+
+  private def matchPackageUpload(
+                                  update:               Update,
+                                  expectedSubmissionId: SubmissionId,
+                                  expectedArchives:     List[DamlLf.Archive]
+                                ): Assertion =
+    inside(update) {
+      case PublicPackageUpload(
+      actualArchives,
+      actualSourceDescription,
+      _,
+      Some(actualSubmissionId)
+      ) =>
+        actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
+        actualSourceDescription should be(sourceDescription)
+        actualSubmissionId should be(expectedSubmissionId)
+    }
 
   def newLedgerId() = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
@@ -174,18 +191,6 @@ class BifrostParticipantStateSpec
         }
       }
     }
-
-    "prune" in {
-      ???
-    }
-
-//    "return updates from state" in {
-//      ???
-//    }
-//
-//    "submit a new transaction" in {
-//      ???
-//    }
   }
 }
 
@@ -197,14 +202,6 @@ object BifrostParticipantStateSpec {
   private val sourceDescription = Some("provided by test")
   private val IdleTimeout: FiniteDuration = 5.seconds
 
-  private val dars = DarReader.readArchive(
-    "create-daml-app-0.1.0.dar",
-    new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream("create-daml-app-0.1.0.dar"))
-  ) match {
-    case Left(value)  => throw new Exception(s"Could not read DAR")
-    case Right(value) => value
-  }
-
   private val testDar = DarParser.readArchive(
     "create-daml-app-0.1.0.dar",
     new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream("create-daml-app-0.1.0.dar"))
@@ -215,22 +212,6 @@ object BifrostParticipantStateSpec {
 
   private val archives = testDar.all
 
-  private def matchPackageUpload(
-    update:               Update,
-    expectedSubmissionId: SubmissionId,
-    expectedArchives:     List[DamlLf.Archive]
-  ): Assertion =
-    inside(update) {
-      case PublicPackageUpload(
-            actualArchives,
-            actualSourceDescription,
-            _,
-            Some(actualSubmissionId)
-          ) =>
-        actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
-        actualSourceDescription should be(sourceDescription)
-        actualSubmissionId should be(expectedSubmissionId)
-    }
 }
 
 import org.scalatest.AsyncTestSuite
