@@ -19,7 +19,7 @@ jobs:
       - name: Setup Java and Scala
         uses: olafurpg/setup-scala@v10
         with:
-          java-version: ${{ matrix.java }}
+          java-version: graalvm-ce-java11@21.0.0
 
       - name: Cache sbt
         uses: actions/cache@v2
