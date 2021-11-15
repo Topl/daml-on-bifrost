@@ -39,7 +39,7 @@ class BifrostReaderWriter(
     telemetryContext:                TelemetryContext
   ): Future[SubmissionResult] =
     Future(SubmissionResult.Acknowledged)
-  //committer.commit(correlationId, envelope, participantId)
+  // committer.commit(correlationId, envelope, participantId)
 
 }
 

@@ -81,3 +81,5 @@ lazy val root = (project in file("."))
 
     )
   )
+
+addCommandAlias("checkPR", s"; scalafmtCheckAll; + test")

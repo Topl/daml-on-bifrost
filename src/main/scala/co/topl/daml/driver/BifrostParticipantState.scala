@@ -212,7 +212,7 @@ class BifrostParticipantState(participantId: ParticipantId, metrics: Metrics, en
     CompletableFuture.completedFuture({
       val submission = keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, participantId, config)
-      //TODO send configuration to a connected Bifrost node
+      // TODO send configuration to a connected Bifrost node
       val commit = CommitSubmission(allocateEntryId, Envelope.enclose(submission).bytes)
       SubmissionResult.Acknowledged
     })
