@@ -19,10 +19,9 @@ object BifrostLedger {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   class Owner(
-    initialLedgerId: Option[LedgerId],
-    participantId:   ParticipantId,
-    timeProvider:    TimeProvider = DefaultTimeProvider,
-    // TODO: Set type of Dispatcher to match Bifrost Index
+    initialLedgerId:       Option[LedgerId],
+    participantId:         ParticipantId,
+    timeProvider:          TimeProvider = DefaultTimeProvider,
     dispatcher:            Dispatcher[Index],
     metrics:               Metrics,
     engine:                Engine

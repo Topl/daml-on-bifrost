@@ -94,17 +94,17 @@ class BifrostParticipantStateSpec
       .runWith(Sink.head)
 
   private def matchPackageUpload(
-                                  update:               Update,
-                                  expectedSubmissionId: SubmissionId,
-                                  expectedArchives:     List[DamlLf.Archive]
-                                ): Assertion =
+    update:               Update,
+    expectedSubmissionId: SubmissionId,
+    expectedArchives:     List[DamlLf.Archive]
+  ): Assertion =
     inside(update) {
       case PublicPackageUpload(
-      actualArchives,
-      actualSourceDescription,
-      _,
-      Some(actualSubmissionId)
-      ) =>
+            actualArchives,
+            actualSourceDescription,
+            _,
+            Some(actualSubmissionId)
+          ) =>
         actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
         actualSourceDescription should be(sourceDescription)
         actualSubmissionId should be(expectedSubmissionId)
@@ -127,7 +127,7 @@ class BifrostParticipantStateSpec
       }
     }
 
-    "submit a configuration to the node" in participantState.use { ps =>
+    "submit a configuration to the node" ignore participantState.use { ps =>
       for {
         cond <- ps.ledgerInitialConditions().runWith(Sink.head)
 
@@ -155,7 +155,7 @@ class BifrostParticipantStateSpec
       ps.currentHealth() should be(Healthy)
     }
 
-    "upload packages" in participantState.use { ps =>
+    "upload packages" ignore participantState.use { ps =>
       val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
@@ -171,7 +171,7 @@ class BifrostParticipantStateSpec
       }
     }
 
-    "allocate party" in participantState.use { ps =>
+    "allocate party" ignore participantState.use { ps =>
       val partyHint = Ref.Party.assertFromString("Alice")
       val displayName = "Alice Cooper"
 
