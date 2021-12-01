@@ -1,25 +1,20 @@
 package co.topl.daml.driver
 
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
-import com.daml.ledger.participant.state.kvutils.app.ReadWriteService
 import com.daml.ledger.participant.state.v2.Update.{ConfigurationChanged, PartyAddedToParticipant, PublicPackageUpload}
 import com.daml.ledger.participant.state.v2.{SubmissionResult, Update}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ParticipantId, SubmissionId}
+import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.logging.LoggingContext
-import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.Metrics
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
@@ -37,18 +32,19 @@ class BifrostParticipantStateSpec
     extends AsyncWordSpecLike
     with AkkaBeforeAndAfterAll
     with Matchers
-    with BeforeAndAfterEach {
+    with BeforeAndAfterEach
+    with BifrostParticipantStateBase {
 
   import BifrostParticipantStateSpec._
 
   implicit protected val telemetryContext: TelemetryContext = NoOpTelemetryContext
   implicit protected val resourceContext: ResourceContext = ResourceContext(executionContext)
 
-  val sharedEngine = Engine.StableEngine()
-
   private var testId: String = _
 
   private var rt: Timestamp = _
+
+  private def participantState: ResourceOwner[BifrostParticipantState] = newParticipantState()
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
@@ -58,32 +54,6 @@ class BifrostParticipantStateSpec
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
     rt.add(Duration.ofNanos(duration.toNanos))
-
-  private def participantState: ResourceOwner[BifrostParticipantState] = newParticipantState()
-
-  private def newParticipantState(ledgerId: Option[LedgerId] = None) = newLoggingContext { implicit logCtx =>
-    participantStateFactory(
-      ledgerId = ledgerId,
-      participantId = participantId,
-      new Metrics(new MetricRegistry)
-    )
-  }
-
-  private def participantStateFactory(
-    ledgerId:        Option[LedgerId],
-    participantId:   ParticipantId,
-    metrics:         Metrics
-  )(implicit logCtx: LoggingContext): ResourceOwner[BifrostParticipantState] =
-    for {
-      dispatcher <- BifrostReaderWriter.newDispatcher()
-      participantState <- new BifrostLedger.Owner(
-        initialLedgerId = ledgerId,
-        participantId = participantId,
-        dispatcher = dispatcher,
-        metrics = metrics,
-        engine = sharedEngine
-      )
-    } yield participantState
 
   private def waitForNextUpdate(
     ps:          BifrostParticipantState,
@@ -145,7 +115,7 @@ class BifrostParticipantStateSpec
             )
           )
           .toScala
-        (offset, update) <- waitForNextUpdate(ps, None)
+        (_, update) <- waitForNextUpdate(ps, None)
       } yield inside(update) { case ConfigurationChanged(_, _, _, newConfiguration) =>
         newConfiguration should not be cond.config
       }
@@ -196,8 +166,6 @@ class BifrostParticipantStateSpec
 
 object BifrostParticipantStateSpec {
 
-  type BifrostParticipantState = ReadWriteService
-
   private val participantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
   private val IdleTimeout: FiniteDuration = 5.seconds
@@ -206,18 +174,10 @@ object BifrostParticipantStateSpec {
     "create-daml-app-0.1.0.dar",
     new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream("create-daml-app-0.1.0.dar"))
   ) match {
-    case Left(value)  => throw new Exception(s"Could not read DAR")
+    case Left(err)    => throw new Exception(s"Could not read DAR: ${err.getCause}")
     case Right(value) => value
   }
 
   private val archives = testDar.all
 
-}
-
-import org.scalatest.AsyncTestSuite
-
-trait TestResourceContext {
-  self: AsyncTestSuite =>
-
-  implicit protected val resourceContext: ResourceContext = ResourceContext(executionContext)
 }
