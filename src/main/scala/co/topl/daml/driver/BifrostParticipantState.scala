@@ -148,7 +148,23 @@ class BifrostParticipantState(participantId: ParticipantId, metrics: Metrics, en
 
   override def allocateParty(hint: Option[Party], displayName: Option[String], submissionId: SubmissionId)(implicit
     telemetryContext:              TelemetryContext
-  ) = ???
+  ) = {
+    val party = hint.getOrElse(generateRandomParty())
+    val submission =
+      keyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, participantId)
+
+    CompletableFuture.completedFuture({
+      CommitSubmission(
+        allocateEntryId,
+        Envelope
+          .enclose(
+            submission
+          )
+          .bytes
+      )
+      SubmissionResult.Acknowledged
+    })
+  }
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     dispatcher
@@ -172,26 +188,6 @@ class BifrostParticipantState(participantId: ParticipantId, metrics: Metrics, en
       .filter { case (offset, _) =>
         beginAfter.forall(offset > _)
       }
-
-//  override def allocateParty(
-//                              hint: Option[Party],
-//                              displayName: Option[String],
-//                              submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
-//    val party = hint.getOrElse(generateRandomParty())
-//    val submission =
-//      keyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, partipantId)
-//
-//    CompletableFuture.completedFuture({
-//      CommitSubmission(
-//        allocateEntryId,
-//        Envelope.enclose(
-//          submission
-//        ).bytes
-//      )
-//      SubmissionResult.Acknowledged
-//    })
-//
-//  }
 
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
