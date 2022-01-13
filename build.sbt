@@ -5,7 +5,7 @@ ThisBuild / version := "0.1.0"
 ThisBuild / organization := "co.topl"
 ThisBuild / organizationName := "Topl"
 
-lazy val sdkVersion = "1.17.1"
+lazy val sdkVersion = "1.18.0"
 lazy val akkaVersion = "2.6.17"
 lazy val protobufVersion = "3.18.1"
 lazy val logbackVersion = "1.2.6"
