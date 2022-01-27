@@ -1,11 +1,16 @@
 *.class
 *.log
 
+.vscode
+.metals
 .idea
+
 target
 
 
 *.dar
 
-# Do not ignore files in testing
+# Do not ignore DAR files in testing or resources
 !src/test/resources/*.dar
+!src/main/resources/*.dar
+
