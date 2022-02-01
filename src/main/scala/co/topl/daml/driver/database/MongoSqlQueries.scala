@@ -5,7 +5,7 @@ import anorm._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries.{LogTable, MetaTable, StateTable}
-import com.daml.ledger.on.sql.queries.{CommonQueries, Queries, QueriesFactory}
+import com.daml.ledger.on.sql.queries.{CommonQueries, QueriesFactory}
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 
 import java.sql.Connection
@@ -17,9 +17,9 @@ final class MongoSqlQueries(offsetBuilder: KVOffsetBuilder)(implicit connection:
   private val MetaTableKey = 0
 
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] = Try {
-    SQL"INSERT INTO $MetaTable (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId) ON CONFLICT DO NOTHING"
+    SQL"INSERT INTO #$MetaTable (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId) ON CONFLICT DO NOTHING"
       .executeInsert()
-    SQL"SELECT ledger_id FROM $MetaTable WHERE table_key = $MetaTableKey"
+    SQL"SELECT ledger_id FROM #$MetaTable WHERE table_key = $MetaTableKey"
       .as(str("ledger_id").single)
   }
 

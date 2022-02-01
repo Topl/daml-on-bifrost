@@ -43,7 +43,7 @@ object BifrostLedger {
         engine
       )
 
-      Resource.successful(new KeyValueParticipantState(reader, reader, metrics))
+      Resource.successful(new KeyValueParticipantState(reader, reader, metrics, enableSelfServiceErrorCodes = true))
     }
   }
 }
