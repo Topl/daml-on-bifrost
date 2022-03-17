@@ -1,0 +1,31 @@
+sdk-version: 1.18.1
+name: nucarbit
+version: 0.1.0
+source: daml
+parties:
+  - Alice
+  - Bob
+  - Carol
+  - Dave
+  - AU9avKWiVVPKyU9LoMqDpduS4knoLDMdPEK54qKDNBpdnAMwQZcS 
+exposed-modules:
+  - Topl
+dependencies:
+  - daml-prim
+  - daml-stdlib
+sandbox-options:
+- --wall-clock-time
+- --ledgerid=nucarbit-sandbox
+codegen:
+  scala:
+    package-prefix: co.topl.daml.models
+    output-directory: src/main/scala
+    verbosity: 2
+  js:
+    package-prefix: co.topl.daml.models
+    output-directory: src/main/js
+    verbosity: 2
+  java:
+    package-prefix: co.topl.daml.models
+    output-directory: src/main/java
+    verbosity: 2
