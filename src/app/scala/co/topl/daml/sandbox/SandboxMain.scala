@@ -1,10 +1,10 @@
-package co.topl.demo.ledger
+package co.topl.daml.sandbox
 
 import com.daml.ledger.participant.state.kvutils.app.Config
 import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 
-object DemoMain {
+object SandboxMain {
 
   def main(args: Array[String]): Unit = {
     val resource = for {

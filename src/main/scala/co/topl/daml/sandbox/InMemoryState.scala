@@ -1,13 +1,13 @@
-package co.topl.demo.ledger
+package co.topl.daml.sandbox
 
-import co.topl.demo.ledger.InMemoryState.{ImmutableLog, MutableLog, MutableState}
+import co.topl.daml.sandbox.InMemoryState.{ImmutableLog, MutableLog, MutableState}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 
 import java.util.concurrent.locks.StampedLock
 import scala.collection.mutable
-import scala.concurrent.{blocking, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new StampedLock()

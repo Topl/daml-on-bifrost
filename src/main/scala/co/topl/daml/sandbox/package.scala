@@ -1,15 +1,12 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package co.topl.demo
+package co.topl.daml
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
-package object ledger {
+package object sandbox {
   type Index = Int
 
-  private[ledger] val StartIndex: Index = 0
+  private[sandbox] val StartIndex: Index = 0
 
   def dispatcherOwner: ResourceOwner[Dispatcher[Index]] =
     Dispatcher.owner(
@@ -18,5 +15,5 @@ package object ledger {
       headAtInitialization = StartIndex
     )
 
-  private[ledger] val RunnerName = "In-Memory Ledger"
+  private[sandbox] val RunnerName = "In-Memory Ledger"
 }

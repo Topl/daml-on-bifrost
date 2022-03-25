@@ -1,13 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package co.topl.demo.ledger
+package co.topl.daml.sandbox
 
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, createKeyValueLedger}
 import com.daml.ledger.participant.state.kvutils.{InMemoryLedgerWriter, KVOffsetBuilder}
-import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
@@ -19,19 +16,21 @@ import scala.concurrent.ExecutionContext
 
 object InMemoryLedgerReaderWriter {
 
+  type Index = Int
+
   final class Owner(
-    ledgerId:                  LedgerId,
-    participantId:             Ref.ParticipantId,
-    offsetVersion:             Byte,
-    keySerializationStrategy:  StateKeySerializationStrategy,
-    metrics:                   Metrics,
-    timeProvider:              TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
-    stateValueCache:           InMemoryLedgerWriter.StateValueCache = Cache.none,
-    dispatcher:                Dispatcher[Index],
-    state:                     InMemoryState,
-    engine:                    Engine,
-    committerExecutionContext: ExecutionContext
-  ) extends ResourceOwner[KeyValueLedger] {
+                     ledgerId: LedgerId,
+                     participantId: Ref.ParticipantId,
+                     offsetVersion: Byte,
+                     keySerializationStrategy: StateKeySerializationStrategy,
+                     metrics: Metrics,
+                     timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
+                     stateValueCache: InMemoryLedgerWriter.StateValueCache = Cache.none,
+                     dispatcher: Dispatcher[Index],
+                     state: InMemoryState,
+                     engine: Engine,
+                     committerExecutionContext: ExecutionContext
+                   ) extends ResourceOwner[KeyValueLedger] {
 
     override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val offsetBuilder = new KVOffsetBuilder(offsetVersion)

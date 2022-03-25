@@ -57,6 +57,8 @@ lazy val root = (project in file("."))
       "com.daml" %% "participant-state" % sdkVersion ,
       "com.daml" %% "participant-state-kvutils" % sdkVersion,
       "com.daml" %% "participant-state-kvutils-app" % sdkVersion,
+      "com.daml" %% "participant-integration-api" % sdkVersion,
+
 
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,

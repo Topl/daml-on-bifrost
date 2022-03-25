@@ -1,4 +1,4 @@
-package co.topl.demo.ledger
+package co.topl.daml.sandbox
 
 import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
 import com.daml.ledger.resources.ResourceOwner
