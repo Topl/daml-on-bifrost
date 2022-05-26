@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  bifrost:
+    image: toplprotocol/bifrost-node
+  daml-on-bifrost:
+    image: toplprotocol/daml-on-bifrost
+    depends_on:
+      - bifrost
+    command:
+      - "--port"
+      - "6865"
+      - "--role"
+      - "ledger"
+  daml-api:
+    image: digitalasset/daml-sdk:1.18.2
+    depends_on:
+      - daml-on-bifrost
+    ports:
+      - 3030:3030
+    command:
+      - "daml"
+      - "json-api"
+      - "--ledger-host"
+      - "daml-on-bifrost"
+      - "--ledger-port"
+      - "6865"
+      - "--http-port"
+      - "3030"
+  daml-navigator:
+    image: digitalasset/daml-sdk:1.18.2
+    depends_on:
+      - daml-on-bifrost
+    ports:
+      - 4000:4000
+    command:
+      - "daml"
+      - "navigator"
+      - "server"
+      - "daml-on-bifrost"
+      - "6865"
