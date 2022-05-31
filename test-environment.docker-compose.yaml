@@ -3,21 +3,26 @@ version: '3.9'
 services:
   bifrost:
     image: toplprotocol/bifrost-node
+    ports:
+      - "9085:9085"
+    environment:
+      "BIFROST_FORGING_FORGE_ON_STARTUP": "true"
+      "BIFROST_RPC_API_DISABLE_AUTH": "true"
   daml-on-bifrost:
     image: toplprotocol/daml-on-bifrost
     depends_on:
       - bifrost
+    ports:
+      - "6865:6865"
     command:
-      - "--port"
-      - "6865"
-      - "--role"
-      - "ledger"
+      - "--participant"
+      - "address=0.0.0.0,port=6865,participant-id=bifrost-1"
   daml-api:
     image: digitalasset/daml-sdk:1.18.2
     depends_on:
       - daml-on-bifrost
     ports:
-      - 3030:3030
+      - "4001:4001"
     command:
       - "daml"
       - "json-api"
@@ -26,13 +31,13 @@ services:
       - "--ledger-port"
       - "6865"
       - "--http-port"
-      - "3030"
+      - "4001"
   daml-navigator:
     image: digitalasset/daml-sdk:1.18.2
     depends_on:
       - daml-on-bifrost
     ports:
-      - 4000:4000
+      - "4000:4000"
     command:
       - "daml"
       - "navigator"
