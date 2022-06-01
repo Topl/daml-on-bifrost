@@ -1,11 +1,11 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "2.12.13"
+ThisBuild / scalaVersion := "2.13.8"
 ThisBuild / version := "0.1.0"
 ThisBuild / organization := "co.topl"
 ThisBuild / organizationName := "Topl"
 
-lazy val sdkVersion = "1.17.1"
+lazy val sdkVersion = "1.18.1"
 lazy val akkaVersion = "2.6.17"
 lazy val protobufVersion = "3.18.1"
 lazy val logbackVersion = "1.2.6"
@@ -57,6 +57,8 @@ lazy val root = (project in file("."))
       "com.daml" %% "participant-state" % sdkVersion ,
       "com.daml" %% "participant-state-kvutils" % sdkVersion,
       "com.daml" %% "participant-state-kvutils-app" % sdkVersion,
+      "com.daml" %% "participant-integration-api" % sdkVersion,
+
 
       "com.typesafe.akka" %% "akka-actor" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
@@ -74,7 +76,7 @@ lazy val root = (project in file("."))
       "ch.qos.logback" % "logback-classic" % logbackVersion,
       "commons-io" % "commons-io" % "2.11.0",
 
-      "org.mongodb" % "mongodb-jdbc" % "1.0.3",
+//      "org.mongodb" % "mongodb-jdbc" % "1.0.3",
 
       "co.topl" %% "common" % "1.7.0",
       "co.topl" %% "brambl" % "1.7.0",
