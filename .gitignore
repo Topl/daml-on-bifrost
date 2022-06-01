@@ -4,4 +4,8 @@
 .idea
 target
 
+
 *.dar
+
+# Do not ignore files in testing
+!src/test/resources/*.dar

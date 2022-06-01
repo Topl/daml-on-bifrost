@@ -14,7 +14,12 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
-import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration, PartyConfiguration, SubmissionConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration
+}
 import com.daml.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.store.LfValueTranslationCache
@@ -54,25 +59,25 @@ object BifrostDriver extends App {
   val authService = config.authService
 
   /**
-    * Initialize a set of resources to represent a driver server implementation.
-    *
-    * When a [[BifrostDriver]] is designated as a ''ledger'' role, this driver uses these components:
-    * - [[MetricRegistry]]: Collects metrics about the JVM as the server is running
-    * - [[BifrostParticipantState]]: Ledger state, allows reads and writes to the ledger through
-    *       the ledger API.
-    * - [[Config.archiveFiles]]: List of DAR files declared through the CLI and uploaded at runtime.
-    * - [[scala.concurrent.ExecutionContextExecutorService]]: Used in [[StandaloneIndexerServer]] and
-    *       [[StandaloneApiServer]] to prevent deadlocks when releasing these resources upon shutdown.
-    * - [[StandaloneIndexerServer]]: Initializes and updates the contract & event database. Also handles
-    *       database migrations with Flyway.
-    * - [[StandaloneApiServer]]: Instantiates the API server to receive requests from Daml applications
-    *       and HTTP-JSON API requests.
-    *
-    * @return A single [[ResourceOwner]] for all Bifrost Driver services
-    */
+   * Initialize a set of resources to represent a driver server implementation.
+   *
+   * When a [[BifrostDriver]] is designated as a ''ledger'' role, this driver uses these components:
+   * - [[MetricRegistry]]: Collects metrics about the JVM as the server is running
+   * - [[BifrostParticipantState]]: Ledger state, allows reads and writes to the ledger through
+   *       the ledger API.
+   * - [[Config.archiveFiles]]: List of DAR files declared through the CLI and uploaded at runtime.
+   * - [[scala.concurrent.ExecutionContextExecutorService]]: Used in [[StandaloneIndexerServer]] and
+   *       [[StandaloneApiServer]] to prevent deadlocks when releasing these resources upon shutdown.
+   * - [[StandaloneIndexerServer]]: Initializes and updates the contract & event database. Also handles
+   *       database migrations with Flyway.
+   * - [[StandaloneApiServer]]: Instantiates the API server to receive requests from Daml applications
+   *       and HTTP-JSON API requests.
+   *
+   * @return A single [[ResourceOwner]] for all Bifrost Driver services
+   */
   def owner(): ResourceOwner[Unit] = new ResourceOwner[Unit] {
-    override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
 
+    override def acquire()(implicit context: ResourceContext): Resource[Unit] =
       newLoggingContext { implicit loggingContext =>
         implicit val actorSystem: ActorSystem = ActorSystem("DamlonBifrostServer")
         implicit val materializer: Materializer = Materializer(actorSystem)
@@ -95,13 +100,12 @@ object BifrostDriver extends App {
             )
             for {
               ledger <- ResourceOwner
-                .forCloseable(
-                  () =>
-                    new BifrostParticipantState(
-                      config.participantId,
-                      metrics,
-                      sharedEngine
-                    )
+                .forCloseable(() =>
+                  new BifrostParticipantState(
+                    config.participantId,
+                    metrics,
+                    sharedEngine
+                  )
                 )
                 .acquire() if config.roleLedger
               _ <- Resource.fromFuture(
@@ -138,10 +142,12 @@ object BifrostDriver extends App {
                   databaseConnectionTimeout = SandboxConfig.DefaultDatabaseConnectionTimeout,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
-                  initialLedgerConfiguration = Some(InitialLedgerConfiguration(
-                    configuration = Configuration.reasonableInitialConfiguration,
-                    delayBeforeSubmitting = java.time.Duration.ofSeconds(1)
-                  )),
+                  initialLedgerConfiguration = Some(
+                    InitialLedgerConfiguration(
+                      configuration = Configuration.reasonableInitialConfiguration,
+                      delayBeforeSubmitting = java.time.Duration.ofSeconds(1)
+                    )
+                  ),
                   configurationLoadTimeout = java.time.Duration.ofSeconds(10),
                   eventsPageSize = config.eventsPageSize,
                   eventsProcessingParallelism = SandboxConfig.DefaultEventsProcessingParallelism,
@@ -153,7 +159,7 @@ object BifrostDriver extends App {
                   maxContractKeyStateCacheSize = 100,
                   enableMutableContractStateCache = false,
                   maxTransactionsInMemoryFanOutBufferSize = 100,
-                  enableInMemoryFanOutForLedgerApi = true,
+                  enableInMemoryFanOutForLedgerApi = true
                 ),
                 commandConfig = CommandConfiguration.default,
                 partyConfig = PartyConfiguration(false),
@@ -161,7 +167,7 @@ object BifrostDriver extends App {
                 optWriteService = Some(ledger),
                 authService = authService,
                 healthChecks = new HealthChecks(
-                  "read" -> new TimedReadService(ledger, metrics),
+                  "read"  -> new TimedReadService(ledger, metrics),
                   "write" -> new TimedWriteService(ledger, metrics)
                 ),
                 metrics = metrics,
@@ -173,17 +179,16 @@ object BifrostDriver extends App {
           }
         } yield ()
       }
-    }
   }
 
-  private def uploadDar(from: Path, to: WritePackagesService)(
-    implicit executionContext: ExecutionContext
+  private def uploadDar(from: Path, to: WritePackagesService)(implicit
+    executionContext:         ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future(
         DarParser.readArchiveFromFile(from.toFile) match {
-          case Left(err) => throw new Error(err.msg)
+          case Left(err)      => throw new Error(err.msg)
           case Right(archive) => archive
         }
       )

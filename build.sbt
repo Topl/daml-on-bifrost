@@ -14,6 +14,8 @@ lazy val logbackVersion = "1.2.6"
 val printSdkVersion = taskKey[Unit]("printSdkVersion")
 printSdkVersion := println(sdkVersion)
 
+resolvers += "Artima Maven Repository" at "https://repo.artima.com/releases"
+
 assemblyMergeStrategy in assembly := {
   case "META-INF/io.netty.versions.properties" =>
     // Looks like multiple versions patch versions of of io.netty are getting
@@ -39,6 +41,7 @@ lazy val root = (project in file("."))
     name := "DAML-on-Bifrost Ledger Implementation",
     libraryDependencies ++= Seq(
       scalaTest % Test,
+      scalactic,
       "com.daml" % "daml-lf-dev-archive-java-proto" % sdkVersion,
       "com.daml" %% "contextualized-logging" % sdkVersion,
       "com.daml" %% "daml-lf-archive-reader" % sdkVersion,
@@ -78,3 +81,5 @@ lazy val root = (project in file("."))
 
     )
   )
+
+addCommandAlias("checkPR", s"; scalafmtCheckAll; + test")
