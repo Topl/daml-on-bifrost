@@ -3,10 +3,10 @@ package co.topl.daml
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
-package object sandbox {
+package object inmemory {
   type Index = Int
 
-  private[sandbox] val StartIndex: Index = 0
+  val StartIndex: Index = 0
 
   def dispatcherOwner: ResourceOwner[Dispatcher[Index]] =
     Dispatcher.owner(
@@ -15,5 +15,5 @@ package object sandbox {
       headAtInitialization = StartIndex
     )
 
-  private[sandbox] val RunnerName = "In-Memory Ledger"
+  val RunnerName = "In-Memory Ledger"
 }

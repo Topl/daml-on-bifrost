@@ -1,10 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package co.topl.daml.sandbox
+package co.topl.daml.inmemory
 
 import co.topl.daml.models.Topl.Asset
-import co.topl.daml.sandbox.InMemoryState.MutableLog
+import co.topl.daml.inmemory.InMemoryState.MutableLog
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}

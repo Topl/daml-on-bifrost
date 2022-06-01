@@ -1,4 +1,4 @@
-package co.topl.daml.sandbox
+package co.topl.daml.inmemory
 
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache

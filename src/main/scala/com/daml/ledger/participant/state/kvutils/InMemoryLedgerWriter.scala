@@ -1,6 +1,6 @@
 package com.daml.ledger.participant.state.kvutils
 
-import co.topl.daml.sandbox.{InMemoryLedgerStateAccess, InMemoryState, Index}
+import co.topl.daml.inmemory.{InMemoryLedgerStateAccess, InMemoryState, Index}
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}

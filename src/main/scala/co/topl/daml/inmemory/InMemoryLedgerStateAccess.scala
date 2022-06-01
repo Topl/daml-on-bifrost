@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package co.topl.daml.sandbox
+package co.topl.daml.inmemory
 
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.validator.{LedgerStateAccess, LedgerStateOperations, TimedLedgerStateOperations}

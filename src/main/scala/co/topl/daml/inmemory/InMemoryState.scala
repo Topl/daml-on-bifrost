@@ -1,6 +1,6 @@
-package co.topl.daml.sandbox
+package co.topl.daml.inmemory
 
-import co.topl.daml.sandbox.InMemoryState.{ImmutableLog, MutableLog, MutableState}
+import co.topl.daml.inmemory.InMemoryState.{ImmutableLog, MutableLog, MutableState}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord

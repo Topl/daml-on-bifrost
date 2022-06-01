@@ -1,10 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package co.topl.daml.sandbox
+package co.topl.daml.inmemory
 
 import akka.stream.Materializer
-import co.topl.daml.sandbox.{InMemoryLedgerReaderWriter, InMemoryState}
+import co.topl.daml.inmemory.{InMemoryLedgerReaderWriter, InMemoryState}
 import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
