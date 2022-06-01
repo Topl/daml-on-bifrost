@@ -7,7 +7,7 @@
 
 target
 
-
+.daml
 *.dar
 
 # Do not ignore DAR files in testing or resources
