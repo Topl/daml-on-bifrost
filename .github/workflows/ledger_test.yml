@@ -1,0 +1,33 @@
+name: Ledger Test
+
+on:
+  pull_request:
+    branches: ['main']
+
+jobs:
+  create-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Java and Scala
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: graalvm-ce-java11@21.1.0
+      - name: Stage Docker Image
+        run: sbt "Docker / publishLocal"
+  ledger-test:
+    needs: ['create-docker-image']
+    runs-on: ubuntu-latest
+    services:
+      daml-on-bifrost:
+        image: toplprotocol/daml-on-bifrost
+        ports:
+          - 6865:6865
+    steps:
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+      - name: 'Get Ledger-API-Test Tool'
+        run: wget https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/1.18.2/ledger-api-test-tool-1.18.2.jar
+      - run: java -jar ledger-api-test-tool-1.18.2.jar localhost:6865
