@@ -1,0 +1,19 @@
+version: '3.9'
+
+services:
+  daml-on-bifrost:
+    image: toplprotocol/daml-on-bifrost
+    command:
+      - "--participant"
+      - "port=6865,participant-id=bifrost-test-1,address=0.0.0.0"
+  ledger-api-test:
+    image: openjdk:8-jre
+    volumes:
+      - ./ledger-api-test-tool-1.18.2.jar:/mnt/ledger-api-test.jar
+    command:
+      - "java"
+      - "-jar"
+      - "/mnt/ledger-api-test.jar"
+      - "daml-on-bifrost:6865"
+    depends_on:
+      - daml-on-bifrost
