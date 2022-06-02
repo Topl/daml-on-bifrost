@@ -16,7 +16,7 @@ printSdkVersion := println(sdkVersion)
 
 resolvers += "Artima Maven Repository" at "https://repo.artima.com/releases"
 
-assemblyMergeStrategy in assembly := {
+assembly / assemblyMergeStrategy := {
   case "META-INF/io.netty.versions.properties" =>
     // Looks like multiple versions patch versions of of io.netty are getting
     // into dependency graph, choose one.
@@ -31,10 +31,27 @@ assemblyMergeStrategy in assembly := {
     // In all 2.10 Jackson JARs
     MergeStrategy.discard
   case x =>
-    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    val oldStrategy = (assembly / assemblyMergeStrategy).value
     oldStrategy(x)
 }
-assemblyJarName in assembly := "daml-on-bifrost.jar"
+
+assembly / assemblyJarName := "daml-on-bifrost.jar"
+
+lazy val dockerSettings = Seq(
+  Docker / packageName := "daml-on-bifrost",
+  dockerBaseImage := "ghcr.io/graalvm/graalvm-ce:java11-21.3.0",
+  dockerUpdateLatest := true,
+  dockerExposedPorts += 6865,
+  dockerLabels ++= Map(
+    "daml-on-bifrost.version" -> version.value
+  ),
+  dockerAliases := dockerAliases.value.flatMap { alias =>
+    Seq(
+      alias.withRegistryHost(Some("docker.io/toplprotocol")),
+      alias.withRegistryHost(Some("ghcr.io/topl"))
+    )
+  }
+)
 
 lazy val root = (project in file("."))
   .settings(
@@ -79,7 +96,10 @@ lazy val root = (project in file("."))
       "co.topl" %% "common" % "1.7.0",
       "co.topl" %% "brambl" % "1.7.0",
 
-    )
+    ),
+
+    dockerSettings
   )
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
 
 addCommandAlias("checkPR", s"; scalafmtCheckAll; + test")
